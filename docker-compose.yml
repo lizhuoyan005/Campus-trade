@@ -1,0 +1,22 @@
+﻿# ============================================================
+# docker-compose.yml - 校园二手交易平台一键部署
+# ============================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:./data/dev.db
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  app-data:

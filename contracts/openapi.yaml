@@ -1,0 +1,799 @@
+﻿openapi: "3.0.3"
+info:
+  title: 校园二手交易平台 API
+  description: |
+    CampusTrade - 校园二手交易平台后端接口契约
+    基础路径: /api/v1
+    认证方式: JWT Bearer Token
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:3000
+    description: 开发环境
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: 业务状态码，0=成功
+          example: 0
+        message:
+          type: string
+          example: success
+        data:
+          type: object
+          nullable: true
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 42
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 12
+        totalPages:
+          type: integer
+          example: 4
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        nickname:
+          type: string
+        avatar:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [user, admin]
+        contact:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Goods:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+        original_price:
+          type: number
+          format: float
+          nullable: true
+        category_id:
+          type: integer
+        category_name:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+          maxItems: 5
+        seller_id:
+          type: integer
+        seller_name:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, sold, offline]
+        reject_reason:
+          type: string
+          nullable: true
+        stock:
+          type: integer
+        view_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        order_no:
+          type: string
+        goods_id:
+          type: integer
+        goods_title:
+          type: string
+        buyer_id:
+          type: integer
+        buyer_name:
+          type: string
+        seller_id:
+          type: integer
+        seller_name:
+          type: string
+        price:
+          type: number
+          format: float
+        status:
+          type: string
+          enum: [pending_pay, paid, completed, cancelled]
+        remark:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          nullable: true
+          default: null
+
+  responses:
+    Unauthorized:
+      description: 未登录或 Token 过期
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 40101
+            message: 未登录或Token已过期
+            data: null
+    Forbidden:
+      description: 无权限
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 40301
+            message: 无权限执行此操作
+            data: null
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 40401
+            message: 资源不存在
+            data: null
+    Conflict:
+      description: 并发冲突或重复操作
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 40901
+            message: 操作冲突，请重试
+            data: null
+
+paths:
+  # ================== 认证模块 ==================
+  /api/v1/auth/register:
+    post:
+      tags:
+        - 认证
+      summary: 用户注册
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+                - nickname
+              properties:
+                username:
+                  type: string
+                  maxLength: 50
+                password:
+                  type: string
+                  minLength: 6
+                nickname:
+                  type: string
+                  maxLength: 50
+                contact:
+                  type: string
+      responses:
+        "201":
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - '$ref': '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                          username:
+                            type: string
+                          nickname:
+                            type: string
+        "400":
+          description: 参数错误或用户名已存在
+
+  /api/v1/auth/login:
+    post:
+      tags:
+        - 认证
+      summary: 用户登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: 登录成功，返回 JWT Token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - '$ref': '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          token:
+                            type: string
+                          user:
+                            '$ref': '#/components/schemas/User'
+
+  /api/v1/auth/me:
+    get:
+      tags:
+        - 认证
+      summary: 获取当前用户信息
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 当前用户信息
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - '$ref': '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        '$ref': '#/components/schemas/User'
+        "401":
+          '$ref': '#/components/responses/Unauthorized'
+
+  /api/v1/goods:
+    get:
+      tags:
+        - 商品
+      summary: 商品列表（分页/筛选/搜索/排序）
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 12
+        - name: keyword
+          in: query
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          schema:
+            type: integer
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [price_asc, price_desc, newest]
+            default: newest
+        - name: status
+          in: query
+          schema:
+            type: string
+            default: approved
+      responses:
+        "200":
+          description: 商品列表（含分页信息）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - '$ref': '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          '$ref': '#/components/schemas/Goods'
+                      pagination:
+                        '$ref': '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - 商品
+      summary: 发布商品
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - price
+              properties:
+                title:
+                  type: string
+                  maxLength: 100
+                description:
+                  type: string
+                price:
+                  type: number
+                  exclusiveMinimum: 0
+                original_price:
+                  type: number
+                category_id:
+                  type: integer
+                images:
+                  type: array
+                  items:
+                    type: string
+                  maxItems: 5
+                contact:
+                  type: string
+      responses:
+        "201":
+          description: 发布成功
+        "400":
+          description: 参数校验失败
+        "401":
+          '$ref': '#/components/responses/Unauthorized'
+
+  /api/v1/goods/{id}:
+    get:
+      tags:
+        - 商品
+      summary: 商品详情
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 商品详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - '$ref': '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        '$ref': '#/components/schemas/Goods'
+        "404":
+          '$ref': '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - 商品
+      summary: 编辑商品
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: number
+                original_price:
+                  type: number
+                category_id:
+                  type: integer
+                images:
+                  type: array
+                  items:
+                    type: string
+                contact:
+                  type: string
+      responses:
+        "200":
+          description: 编辑成功
+        "403":
+          '$ref': '#/components/responses/Forbidden'
+        "404":
+          '$ref': '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - 商品
+      summary: 下架商品
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 下架成功
+        "403":
+          '$ref': '#/components/responses/Forbidden'
+
+  /api/v1/orders:
+    post:
+      tags:
+        - 订单
+      summary: 创建订单（含并发控制）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - goodsId
+              properties:
+                goodsId:
+                  type: integer
+                remark:
+                  type: string
+      responses:
+        "201":
+          description: 下单成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - '$ref': '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        '$ref': '#/components/schemas/Order'
+        "409":
+          '$ref': '#/components/responses/Conflict'
+
+    get:
+      tags:
+        - 订单
+      summary: 我的订单列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [buyer, seller]
+            default: buyer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending_pay, paid, completed, cancelled]
+      responses:
+        "200":
+          description: 订单列表
+
+  /api/v1/orders/{id}:
+    get:
+      tags:
+        - 订单
+      summary: 订单详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 订单详情
+        "404":
+          '$ref': '#/components/responses/NotFound'
+
+  /api/v1/orders/{id}/pay:
+    patch:
+      tags:
+        - 订单
+      summary: 模拟付款
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 付款成功
+        "400":
+          description: 订单状态不允许付款
+
+  /api/v1/orders/{id}/cancel:
+    patch:
+      tags:
+        - 订单
+      summary: 取消订单
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 取消成功（库存已释放）
+
+  /api/v1/orders/{id}/complete:
+    patch:
+      tags:
+        - 订单
+      summary: 确认完成交易
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 交易完成
+
+  /api/v1/favorites:
+    get:
+      tags:
+        - 收藏
+      summary: 我的收藏列表
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 收藏商品列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - '$ref': '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          '$ref': '#/components/schemas/Goods'
+
+  /api/v1/favorites/{goodsId}:
+    post:
+      tags:
+        - 收藏
+      summary: 收藏商品
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: goodsId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: 收藏成功
+
+    delete:
+      tags:
+        - 收藏
+      summary: 取消收藏
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: goodsId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 取消收藏成功
+
+  /api/v1/admin/goods:
+    get:
+      tags:
+        - 管理员
+      summary: 商品审核列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+            default: pending
+      responses:
+        "200":
+          description: 审核列表
+        "403":
+          '$ref': '#/components/responses/Forbidden'
+
+  /api/v1/admin/goods/{id}/approve:
+    patch:
+      tags:
+        - 管理员
+      summary: 审核通过
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 审核通过
+        "403":
+          '$ref': '#/components/responses/Forbidden'
+        "404":
+          '$ref': '#/components/responses/NotFound'
+
+  /api/v1/admin/goods/{id}/reject:
+    patch:
+      tags:
+        - 管理员
+      summary: 审核驳回
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: 驳回成功
+        "403":
+          '$ref': '#/components/responses/Forbidden'
+
+  /api/v1/admin/orders:
+    get:
+      tags:
+        - 管理员
+      summary: 所有订单（管理员）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending_pay, paid, completed, cancelled]
+      responses:
+        "200":
+          description: 订单列表
+
+  /api/v1/categories:
+    get:
+      tags:
+        - 公共
+      summary: 获取分类列表
+      responses:
+        "200":
+          description: 分类列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - '$ref': '#/components/schemas/ApiResponse'
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            name:
+                              type: string
+                            icon:
+                              type: string
