@@ -17,6 +17,9 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
+# 构建完成后移除开发依赖，减小最终镜像体积
+RUN npm prune --production
+
 # ---- Stage 2: 生产运行 ----
 FROM node:20-slim AS runner
 WORKDIR /app
