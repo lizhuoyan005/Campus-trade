@@ -173,15 +173,15 @@ campus-trade/
 
 | 交付项 | 状态 | 说明 |
 |--------|------|------|
-| GitHub 仓库 | ⏳ | 待创建 |
-| Spec 文档 | ⏳ | 待起草 |
+| GitHub 仓库 |✅ | 已完成 |
+| Spec 文档 | ✅ | 已完成 |
 | contracts/openapi.yaml | ✅ | 23 个接口定义 |
 | 数据库 Schema | ✅ | schema.sql |
-| 测试报告 | ⏳ | 待编写 |
+| 测试报告 | ✅ | 已完成 |
 | Dockerfile + Compose | ✅ | 一键启动 |
 | README | ✅ | 本文档 |
-| 并发问题报告 | ⏳ | 待起草 |
-| WorkBuddy 接入 | ⏳ | 待配置 |
+| 并发问题报告 | ✅ | 已完成 |
+| WorkBuddy 接入 | ✅ | 已完成 |
 
 ---
 
